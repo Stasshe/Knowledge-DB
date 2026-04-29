@@ -135,8 +135,8 @@ async function putGithubContent({ url, headers, content, sha, message }) {
     message,
     content: Buffer.from(content).toString("base64"),
     author: {
-      name: "Stasshe Slack Knowledge Logger[bot]",
-      email: "slack-knowledge-logger@users.noreply.github.com"
+      name: "Stasshe",
+      email: "133995608+Stasshe@users.noreply.github.com"
     },
     committer: {
       name: "Stasshe Slack Knowledge Logger[bot]",
