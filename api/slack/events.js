@@ -1,14 +1,20 @@
 export default async function handler(req, res) {
-  const body = req.body
+  if (req.method !== "POST") {
+    return res.status(200).send("OK")
+  }
 
-  // Slack URL検証
-  if (body.type === "url_verification") {
+  let body = req.body
+
+  if (typeof body === "string") {
+    body = JSON.parse(body)
+  }
+
+  if (body?.type === "url_verification") {
     return res.status(200).send(body.challenge)
   }
 
   const event = body.event
 
-  // フィルタ：自分のtimesチャンネルのみ
   if (
     event?.type === "message" &&
     event.channel === process.env.SLACK_TARGET_CHANNEL_ID &&
@@ -20,7 +26,7 @@ export default async function handler(req, res) {
     await appendToGithub(entry)
   }
 
-  return res.status(200).end()
+  return res.status(200).send("OK")
 }
 
 // --- Markdown整形 ---
