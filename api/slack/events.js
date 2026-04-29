@@ -19,16 +19,15 @@ export default async function handler(req, res) {
     event?.type === "message" &&
     event.channel === process.env.SLACK_TARGET_CHANNEL_ID
   ) {
-    // 新規投稿
     if (
       event.user === process.env.SLACK_TARGET_USER_ID &&
       !event.bot_id &&
       !event.subtype
     ) {
-      await appendToGithub(formatEntry(event), event.ts)
+      const entry = formatEntry(event)
+      await appendToGithub(entry, event.ts)
     }
 
-    // 編集投稿
     if (
       event.subtype === "message_changed" &&
       event.message?.user === process.env.SLACK_TARGET_USER_ID &&
@@ -41,7 +40,6 @@ export default async function handler(req, res) {
   return res.status(200).send("OK")
 }
 
-// --- Markdown整形 ---
 function formatEntry(event) {
   const time = new Date(parseFloat(event.ts) * 1000)
     .toISOString()
@@ -60,7 +58,6 @@ ${text}
 `
 }
 
-// --- 新規append ---
 async function appendToGithub(entry, ts) {
   const path = getFilenameFromSlackTs(ts)
   const { url, headers } = getGithubRequest(path)
@@ -76,8 +73,8 @@ async function appendToGithub(entry, ts) {
     sha = data.sha
   }
 
-  // 重複防止
   const slackTs = extractSlackTs(entry)
+
   if (slackTs && content.includes(`<!-- slack-ts:${slackTs} -->`)) {
     return
   }
@@ -89,11 +86,10 @@ async function appendToGithub(entry, ts) {
     headers,
     content: newContent,
     sha,
-    message: "append knowledge"
+    message: `append knowledge: ${getShortText(entry)}`
   })
 }
 
-// --- 編集反映 ---
 async function updateGithubEntry(message) {
   const path = getFilenameFromSlackTs(message.ts)
   const { url, headers } = getGithubRequest(path)
@@ -119,11 +115,10 @@ async function updateGithubEntry(message) {
     headers,
     content: newContent,
     sha: data.sha,
-    message: "update knowledge entry"
+    message: `update knowledge: ${getShortText(newEntry)}`
   })
 }
 
-// --- GitHub共通 ---
 function getGithubRequest(path) {
   const url = `https://api.github.com/repos/${process.env.GITHUB_REPO}/contents/${path}`
 
@@ -138,7 +133,15 @@ function getGithubRequest(path) {
 async function putGithubContent({ url, headers, content, sha, message }) {
   const body = {
     message,
-    content: Buffer.from(content).toString("base64")
+    content: Buffer.from(content).toString("base64"),
+    author: {
+      name: "Stasshe Slack Knowledge Logger[bot]",
+      email: "slack-knowledge-logger@users.noreply.github.com"
+    },
+    committer: {
+      name: "Stasshe Slack Knowledge Logger[bot]",
+      email: "slack-knowledge-logger@users.noreply.github.com"
+    }
   }
 
   if (sha) {
@@ -152,7 +155,6 @@ async function putGithubContent({ url, headers, content, sha, message }) {
   })
 }
 
-// --- ファイル名 ---
 function getFilenameFromSlackTs(ts) {
   const date = new Date(parseFloat(ts) * 1000)
   const year = date.getFullYear()
@@ -161,7 +163,6 @@ function getFilenameFromSlackTs(ts) {
   return `knowledge/${year}-W${week}.md`
 }
 
-// --- ISO週番号 ---
 function getISOWeek(date) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
   const dayNum = d.getUTCDay() || 7
@@ -173,7 +174,19 @@ function getISOWeek(date) {
   return Math.ceil(((d - yearStart) / 86400000 + 1) / 7)
 }
 
-// --- util ---
+function getShortText(entry) {
+  return (
+    entry
+      .replace(/<!-- slack-ts:.*? -->/g, "")
+      .replace(/^## .*$/m, "")
+      .replace(/---/g, "")
+      .trim()
+      .split("\n")
+      .find(Boolean)
+      ?.slice(0, 60) || "untitled"
+  )
+}
+
 function escapeRegExp(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
