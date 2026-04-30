@@ -22,7 +22,8 @@ export default async function handler(req, res) {
     if (
       event.user === process.env.SLACK_TARGET_USER_ID &&
       !event.bot_id &&
-      !event.subtype
+      !event.subtype &&
+      isMainThreadMessage(event)
     ) {
       const entry = formatEntry(event)
       await appendToGithub(entry, event.ts)
@@ -31,13 +32,18 @@ export default async function handler(req, res) {
     if (
       event.subtype === "message_changed" &&
       event.message?.user === process.env.SLACK_TARGET_USER_ID &&
-      !event.message?.bot_id
+      !event.message?.bot_id &&
+      isMainThreadMessage(event.message)
     ) {
       await updateGithubEntry(event.message)
     }
   }
 
   return res.status(200).send("OK")
+}
+
+function isMainThreadMessage(message) {
+  return !message.thread_ts || message.thread_ts === message.ts
 }
 
 function formatEntry(event) {
