@@ -52,7 +52,7 @@ function formatEntry(event) {
     .replace("T", " ")
     .slice(0, 16)
 
-  const text = event.text ?? ""
+  const text = normalizeSlackText(event.text ?? "")
 
   return `
 <!-- slack-ts:${event.ts} -->
@@ -62,6 +62,12 @@ ${text}
 
 ---
 `
+}
+
+function normalizeSlackText(text) {
+  return text
+    .replace(/<([^|>]+)\|([^>]+)>/g, "$2")
+    .replace(/<([^>]+)>/g, "$1")
 }
 
 async function appendToGithub(entry, ts) {
